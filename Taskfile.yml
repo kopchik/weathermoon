@@ -1,0 +1,6 @@
+version: "3"
+
+includes:
+  iot:
+    taskfile: iot/Taskfile.yml
+    flatten: true
