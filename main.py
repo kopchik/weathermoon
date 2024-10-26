@@ -1,10 +1,10 @@
 import gc
 import time
 
+import config
 import network
 from machine import ADC, DEEPSLEEP_RESET, SPI, WDT, Pin, deepsleep, reset_cause
 
-import config
 from iot import rtc_mem
 from iot.calibration import interpolate
 from iot.ha import HA
@@ -100,15 +100,26 @@ def main():
 
     # ADC
     adc = ADC(1, atten=ADC.ATTN_0DB)
+
     if coldboot:
-        lcd.log("cold delay")
-        time.sleep(10)
+        delay = 5
+        lcd.log(f"reboot {delay}s")
+        for x in range(delay):
+            bat_percentage, bat_voltage = get_battery_level(
+                adc,
+                config.BAT_VOLTAGE_CAL,
+                config.BAT_PERCENTAGE_CAL,
+            )
+            lcd.log(f"{bat_percentage}% {bat_voltage:.3f}V")
+            time.sleep(1)
+        sleep(1_000)
+
     bat_percentage, bat_voltage = get_battery_level(
         adc,
         config.BAT_VOLTAGE_CAL,
         config.BAT_PERCENTAGE_CAL,
     )
-    lcd.log(f"B:{bat_percentage}% {bat_voltage:.2f}V")
+    lcd.log(f"B:{bat_percentage}% {bat_voltage:.3f}V")
 
     bat_charged = True
     if bat_percentage < 20:
@@ -118,7 +129,7 @@ def main():
         lcd.clear()
         lcd.log("plz charge")
         lcd.log(f"bat: {bat_percentage}%")
-        lcd.log(f"bat: {bat_voltage:.2f}V")
+        lcd.log(f"bat: {bat_voltage:.3f}V")
         lcd.log("plz charge")
         lcd.log(f"(sleeping {sleep_dur_minutes}m)")
         sleep(sleep_dur_minutes * 60 * 1000, bl=backlight, rst=rst, cs=cs)
@@ -167,7 +178,7 @@ def main():
     lcd.log(f"{temperature:.2f}C")
     lcd.log("")
     lcd.log(f"{time_now}")
-    lcd.log(f"{bat_percentage}% {bat_voltage:.2f}")
+    lcd.log(f"{bat_percentage}% {bat_voltage:.3f}V")
 
     # STORE CURRENT STATE
     rtc_mem.store({"temp": temperature, "ts": time_now})
