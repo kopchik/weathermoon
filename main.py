@@ -7,7 +7,7 @@ from machine import ADC, DEEPSLEEP_RESET, SPI, WDT, Pin, deepsleep, reset_cause
 
 from iot import rtc_mem
 from iot.calibration import interpolate
-from iot.ha import HA
+from iot.ha import HA, HAError
 from iot.pcd8544_flip import LCD
 from iot.wifi import connect
 
@@ -60,6 +60,7 @@ def main():
     if coldboot:
         sleep_duration = 10
         backlight_num_blinks = 5
+        rtc_mem.store(b'')
 
     # ACTIVITY LED
     Pin(15, mode=Pin.OUT, value=0)  # goes off in sleep by itself
@@ -103,7 +104,7 @@ def main():
 
     if coldboot:
         delay = 5
-        lcd.log(f"reboot {delay}s")
+        lcd.log("reboot...")
         for x in range(delay):
             bat_percentage, bat_voltage = get_battery_level(
                 adc,
@@ -111,7 +112,7 @@ def main():
                 config.BAT_PERCENTAGE_CAL,
             )
             lcd.log(f"{bat_percentage}% {bat_voltage:.3f}V")
-            time.sleep(1)
+            time.sleep(0.3)
         sleep(1_000)
 
     bat_percentage, bat_voltage = get_battery_level(
@@ -170,12 +171,23 @@ def main():
         ha_token=config.HA_TOKEN,
         base_url=config.HA_BASE_URL,
     )
-    date, time_now = ha.get_local_date_time()
-    temperature = ha.get_outdoor_temp()
+    try:
+        _date, time_now = ha.get_local_date_time()
+    except HAError:
+        _date = "<unk>"
+        time_now = "<unk>"
+
+    try:
+        temperature = ha.get_outdoor_temp()
+    except HAError:
+        temperature = -273.15
 
     # MAIN SCREEN
     lcd.clear()
-    lcd.log(f"{temperature:.2f}C")
+    if temperature is not None:
+        lcd.log(f"{temperature:.2f}C")
+    else:
+        lcd.log("<temp unk>")
     lcd.log("")
     lcd.log(f"{time_now}")
     lcd.log(f"{bat_percentage}% {bat_voltage:.3f}V")
